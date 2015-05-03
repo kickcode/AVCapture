@@ -45,15 +45,19 @@ class AppDelegate
   end
 
   def toggle_capture(sender)
+    return if @is_working
     @is_running ||= false
     if @is_running
+      @is_working = true
+      @output.stopRecording
       @session.stopRunning
-      @button.title = "Start"
+      @button.title = "Stopping..."
     else
+      @is_working = true
       @session.startRunning
-      @button.title = "Stop"
+      @button.title = "Starting..."
     end
-    @is_running = !@is_running
+    @button.enabled = false
   end
 
   def buildWindow
@@ -69,5 +73,19 @@ class AppDelegate
   def didStartRunning
     url = NSURL.alloc.initWithString("file:///Users/#{NSUserName()}/Desktop/temp#{Time.now.to_i}.mp4")
     @output.startRecordingToOutputFileURL(url, recordingDelegate: self)
+  end
+
+  def captureOutput(output, didStartRecordingToOutputFileAtURL: url, fromConnections: connections)
+    @button.title = "Stop"
+    @button.enabled = true
+    @is_working = false
+    @is_running = true
+  end
+
+  def captureOutput(output, didFinishRecordingToOutputFileAtURL: url, fromConnections: connections, error: err)
+    @button.title = "Start"
+    @button.enabled = true
+    @is_working = false
+    @is_running = false
   end
 end
