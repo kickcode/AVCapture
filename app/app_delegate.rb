@@ -20,6 +20,35 @@ class AppDelegate
 
     @output = AVCaptureMovieFileOutput.alloc.init
     @session.addOutput(@output) if @session.canAddOutput(@output)
+
+    @button = NSButton.alloc.initWithFrame(CGRectZero)
+    self.set_button_frame
+    @button.title = "Start"
+    @button.target = self
+    @button.action = 'toggle_capture:'
+    @mainWindow.contentView.addSubview(@button)
+  end
+
+  def windowDidResize(notification)
+    self.set_button_frame
+  end
+
+  def set_button_frame
+    size = @mainWindow.frame.size
+    button_size = [150, 30]
+    @button.frame = [[(size.width / 2.0) - (button_size[0] / 2.0), (size.height / 2.0) - (button_size[1] / 2.0)], button_size]
+  end
+
+  def toggle_capture(sender)
+    @is_running ||= false
+    if @is_running
+      @session.stopRunning
+      @button.title = "Start"
+    else
+      @session.startRunning
+      @button.title = "Stop"
+    end
+    @is_running = !@is_running
   end
 
   def buildWindow
@@ -29,5 +58,6 @@ class AppDelegate
       defer: false)
     @mainWindow.title = NSBundle.mainBundle.infoDictionary['CFBundleName']
     @mainWindow.orderFrontRegardless
+    @mainWindow.delegate = self
   end
 end
