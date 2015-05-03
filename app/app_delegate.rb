@@ -1,4 +1,6 @@
 class AppDelegate
+  BUTTON_SIZE = [150, 30]
+
   def applicationDidFinishLaunching(notification)
     buildMenu
     buildWindow
@@ -39,9 +41,7 @@ class AppDelegate
   end
 
   def set_button_frame
-    size = @mainWindow.frame.size
-    button_size = [150, 30]
-    @button.frame = [[(size.width / 2.0) - (button_size[0] / 2.0), (size.height / 2.0) - (button_size[1] / 2.0)], button_size]
+    @button.frame = [[0, 0], BUTTON_SIZE]
   end
 
   def toggle_capture(sender)
@@ -67,9 +67,21 @@ class AppDelegate
     @mainWindow.title = NSBundle.mainBundle.infoDictionary['CFBundleName']
     @mainWindow.orderFrontRegardless
     @mainWindow.delegate = self
+    bounds = @mainWindow.contentView.bounds
+    bounds.size.height -= BUTTON_SIZE.last
+    bounds.origin.y += BUTTON_SIZE.last
+    @view = NSView.alloc.initWithFrame(bounds)
+    layer = CALayer.layer
+    @view.setLayer(layer)
+    @view.setWantsLayer(true)
+    @mainWindow.contentView.addSubview(@view)
   end
 
   def didStartRunning
+    @video_preview = AVCaptureVideoPreviewLayer.alloc.initWithSession(@session)
+    @video_preview.frame = @view.bounds
+    @view.layer.addSublayer(@video_preview)
+
     url = NSURL.alloc.initWithString("file:///Users/#{NSUserName()}/Desktop/temp#{Time.now.to_i}.mp4")
     @output.startRecordingToOutputFileURL(url, recordingDelegate: self)
   end
