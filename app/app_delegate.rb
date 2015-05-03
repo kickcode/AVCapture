@@ -27,6 +27,11 @@ class AppDelegate
     @button.target = self
     @button.action = 'toggle_capture:'
     @mainWindow.contentView.addSubview(@button)
+
+    NSNotificationCenter.defaultCenter.addObserver(self,
+      selector: 'didStartRunning',
+      name: AVCaptureSessionDidStartRunningNotification,
+      object: nil)
   end
 
   def windowDidResize(notification)
@@ -59,5 +64,10 @@ class AppDelegate
     @mainWindow.title = NSBundle.mainBundle.infoDictionary['CFBundleName']
     @mainWindow.orderFrontRegardless
     @mainWindow.delegate = self
+  end
+
+  def didStartRunning
+    url = NSURL.alloc.initWithString("file:///Users/#{NSUserName()}/Desktop/temp#{Time.now.to_i}.mp4")
+    @output.startRecordingToOutputFileURL(url, recordingDelegate: self)
   end
 end
