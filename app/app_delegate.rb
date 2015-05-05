@@ -38,10 +38,30 @@ class AppDelegate
 
   def windowDidResize(notification)
     self.set_button_frame
+    self.update_video_preview if @is_running
   end
 
   def set_button_frame
     @button.frame = [[0, 0], BUTTON_SIZE]
+  end
+
+  def update_video_preview
+    if @view
+      @video_preview.removeFromSuperlayer if @video_preview
+      @view.removeFromSuperview
+    end
+
+    bounds = @mainWindow.contentView.bounds
+    bounds.size.height -= BUTTON_SIZE.last
+    bounds.origin.y += BUTTON_SIZE.last
+    @view = NSView.alloc.initWithFrame(bounds)
+    layer = CALayer.layer
+    @view.setLayer(layer)
+    @view.setWantsLayer(true)
+    @mainWindow.contentView.addSubview(@view)
+
+    @video_preview.frame = @view.bounds
+    @view.layer.addSublayer(@video_preview)
   end
 
   def toggle_capture(sender)
@@ -67,20 +87,11 @@ class AppDelegate
     @mainWindow.title = NSBundle.mainBundle.infoDictionary['CFBundleName']
     @mainWindow.orderFrontRegardless
     @mainWindow.delegate = self
-    bounds = @mainWindow.contentView.bounds
-    bounds.size.height -= BUTTON_SIZE.last
-    bounds.origin.y += BUTTON_SIZE.last
-    @view = NSView.alloc.initWithFrame(bounds)
-    layer = CALayer.layer
-    @view.setLayer(layer)
-    @view.setWantsLayer(true)
-    @mainWindow.contentView.addSubview(@view)
   end
 
   def didStartRunning
     @video_preview = AVCaptureVideoPreviewLayer.alloc.initWithSession(@session)
-    @video_preview.frame = @view.bounds
-    @view.layer.addSublayer(@video_preview)
+    self.update_video_preview
 
     url = NSURL.alloc.initWithString("file:///Users/#{NSUserName()}/Desktop/temp#{Time.now.to_i}.mp4")
     @output.startRecordingToOutputFileURL(url, recordingDelegate: self)
