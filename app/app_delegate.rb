@@ -23,6 +23,9 @@ class AppDelegate
     @output = AVCaptureMovieFileOutput.alloc.init
     @session.addOutput(@output) if @session.canAddOutput(@output)
 
+    @audio_output = AVCaptureAudioDataOutput.alloc.init
+    @session.addOutput(@audio_output) if @session.canAddOutput(@audio_output)
+
     @button = NSButton.alloc.initWithFrame(CGRectZero)
     self.set_button_frame
     @button.title = "Start"
@@ -34,6 +37,19 @@ class AppDelegate
       selector: 'didStartRunning',
       name: AVCaptureSessionDidStartRunningNotification,
       object: nil)
+
+    NSTimer.scheduledTimerWithTimeInterval(0.1, target: self, selector: 'checkAudioLevels', userInfo: nil, repeats: true)
+  end
+
+  def checkAudioLevels
+    return unless @is_running
+    sum = 0
+    @audio_output.connections.first.audioChannels.each_with_index do |channel, index|
+      NSLog "CHANNEL[#{index}]: avg: #{channel.averagePowerLevel}, peak: #{channel.peakHoldLevel}"
+      sum += (channel.averagePowerLevel + channel.peakHoldLevel) / 2.0
+    end
+    avg = sum / @audio_output.connections.first.audioChannels.count
+    NSLog "AVERAGE AVERAGE: #{avg}"
   end
 
   def windowDidResize(notification)
