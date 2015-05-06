@@ -50,7 +50,6 @@ class AppDelegate
     if @is_running
       @is_working = true
       @output.stopRecording
-      @session.stopRunning
       @button.title = "Stopping..."
     else
       @is_working = true
@@ -83,6 +82,7 @@ class AppDelegate
   end
 
   def captureOutput(output, didFinishRecordingToOutputFileAtURL: url, fromConnections: connections, error: err)
+    @session.stopRunning
     @button.title = "Start"
     @button.enabled = true
     @is_working = false
