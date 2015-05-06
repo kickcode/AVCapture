@@ -90,7 +90,7 @@ class AppDelegate
   end
 
   def didStartRunning
-    @video_preview = AVCaptureVideoPreviewLayer.alloc.initWithSession(@session)
+    @video_preview ||= AVCaptureVideoPreviewLayer.alloc.initWithSession(@session)
     self.update_video_preview
 
     url = NSURL.alloc.initWithString("file:///Users/#{NSUserName()}/Desktop/temp#{Time.now.to_i}.mp4")
