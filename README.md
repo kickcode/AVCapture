@@ -5,6 +5,7 @@ A RubyMotion OS X app that demonstrates how to capture audio and video from inpu
 Branches:
 
 * master - capturing from default audio and video devices (built-in iSight and mic on most Macs) and outputting to file, triggered with a simple start/stop button (http://kickcode.com/blog/2015/05/06/capturing-video-and-audio-on-mac-os-x-with-rubymotion.html)
+* av_preview - includes functionality to preview video and see the audio level displayed (http://kickcode.com/blog/2015/05/07/previewing-video-and-audio-when-capturing-on-mac-os-x-with-rubymotion.html)
 
 ## Requirements
 
