@@ -33,6 +33,15 @@ class AppDelegate
     @button.action = 'toggle_capture:'
     @mainWindow.contentView.addSubview(@button)
 
+    @audio_level = Motion::Meter::ThresholdMeter.alloc.initWithFrame(CGRectZero)
+    @audio_level.add_threshold(-20, -5, NSColor.greenColor)
+    @audio_level.add_threshold(-5, 3, NSColor.yellowColor)
+    @audio_level.add_threshold(3, 10, NSColor.redColor)
+    @audio_level.min_value = -20
+    @audio_level.max_value = 10
+    self.set_audio_level_frame
+    @mainWindow.contentView.addSubview(@audio_level)
+
     NSNotificationCenter.defaultCenter.addObserver(self,
       selector: 'didStartRunning',
       name: AVCaptureSessionDidStartRunningNotification,
@@ -45,20 +54,24 @@ class AppDelegate
     return unless @is_running
     sum = 0
     @audio_output.connections.first.audioChannels.each_with_index do |channel, index|
-      NSLog "CHANNEL[#{index}]: avg: #{channel.averagePowerLevel}, peak: #{channel.peakHoldLevel}"
       sum += (channel.averagePowerLevel + channel.peakHoldLevel) / 2.0
     end
     avg = sum / @audio_output.connections.first.audioChannels.count
-    NSLog "AVERAGE AVERAGE: #{avg}"
+    @audio_level.value = avg
   end
 
   def windowDidResize(notification)
     self.set_button_frame
+    self.set_audio_level_frame
     self.update_video_preview if @is_running
   end
 
   def set_button_frame
     @button.frame = [[0, 0], BUTTON_SIZE]
+  end
+
+  def set_audio_level_frame
+    @audio_level.frame = [[BUTTON_SIZE.first, 0], [@mainWindow.contentView.bounds.size.width - BUTTON_SIZE.first, BUTTON_SIZE.last]]
   end
 
   def update_video_preview
