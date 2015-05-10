@@ -1,5 +1,5 @@
 class AppDelegate
-  BUTTON_SIZE = [150, 30]
+  BUTTON_SIZE = [90, 30]
 
   def applicationDidFinishLaunching(notification)
     buildMenu
@@ -26,12 +26,22 @@ class AppDelegate
     @audio_output = AVCaptureAudioDataOutput.alloc.init
     @session.addOutput(@audio_output) if @session.canAddOutput(@audio_output)
 
+    @image_output = AVCaptureStillImageOutput.alloc.init
+    @session.addOutput(@image_output) if @session.canAddOutput(@image_output)
+
     @button = NSButton.alloc.initWithFrame(CGRectZero)
     self.set_button_frame
     @button.title = "Start"
     @button.target = self
     @button.action = 'toggle_capture:'
     @mainWindow.contentView.addSubview(@button)
+
+    @image_button = NSButton.alloc.initWithFrame(CGRectZero)
+    self.set_image_button_frame
+    @image_button.title = "Snap"
+    @image_button.target = self
+    @image_button.action = 'snap_picture:'
+    @mainWindow.contentView.addSubview(@image_button)
 
     @audio_level = Motion::Meter::ThresholdMeter.alloc.initWithFrame(CGRectZero)
     @audio_level.add_threshold(-20, -5, NSColor.greenColor)
@@ -62,6 +72,7 @@ class AppDelegate
 
   def windowDidResize(notification)
     self.set_button_frame
+    self.set_image_button_frame
     self.set_audio_level_frame
     self.update_video_preview if @is_running
   end
@@ -70,8 +81,12 @@ class AppDelegate
     @button.frame = [[0, 0], BUTTON_SIZE]
   end
 
+  def set_image_button_frame
+    @image_button.frame = [[@mainWindow.contentView.bounds.size.width - BUTTON_SIZE.first, 0], BUTTON_SIZE]
+  end
+
   def set_audio_level_frame
-    @audio_level.frame = [[BUTTON_SIZE.first, 0], [@mainWindow.contentView.bounds.size.width - BUTTON_SIZE.first, BUTTON_SIZE.last]]
+    @audio_level.frame = [[BUTTON_SIZE.first, 0], [@mainWindow.contentView.bounds.size.width - (BUTTON_SIZE.first * 2), BUTTON_SIZE.last]]
   end
 
   def update_video_preview
@@ -106,6 +121,23 @@ class AppDelegate
       @button.title = "Starting..."
     end
     @button.enabled = false
+  end
+
+  def snap_picture(sender)
+    return unless @is_running
+
+    image_connection = nil
+    @image_output.connections.each do |connection|
+      connection.inputPorts.each do |port|
+        image_connection = connection if port.mediaType == AVMediaTypeVideo
+      end
+    end
+
+    return if image_connection.nil?
+
+    @image_output.captureStillImageAsynchronouslyFromConnection(image_connection, completionHandler: Proc.new do |sample_buffer, error|
+      AVCaptureStillImageOutput.jpegStillImageNSDataRepresentation(sample_buffer).writeToFile("/Users/#{NSUserName()}/Desktop/temp#{Time.now.to_i}.jpg", atomically: false) if error.nil?
+    end)
   end
 
   def buildWindow
