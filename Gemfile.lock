@@ -10,3 +10,6 @@ PLATFORMS
 DEPENDENCIES
   motion-meter
   rake
+
+BUNDLED WITH
+   1.10.3
