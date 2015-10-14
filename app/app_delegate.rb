@@ -1,15 +1,21 @@
 class AppDelegate
   BUTTON_SIZE = [90, 30]
+  FPS = 30
+  SAMPLE_RATE = 44100.0
 
   def applicationDidFinishLaunching(notification)
     buildMenu
     buildWindow
 
     @session = AVCaptureSession.alloc.init
-    @session.sessionPreset = AVCaptureSessionPresetHigh
+    @session.sessionPreset = AVCaptureSessionPreset1280x720
 
     devices = AVCaptureDevice.devices
     video_device = devices.select { |device| device.hasMediaType(AVMediaTypeVideo) }.first
+    video_device.lockForConfiguration(nil)
+    video_device.setActiveVideoMinFrameDuration(CMTimeMake(1, FPS))
+    video_device.setActiveVideoMaxFrameDuration(CMTimeMake(1, FPS))
+    video_device.unlockForConfiguration
     audio_device = devices.select { |device| device.hasMediaType(AVMediaTypeAudio) }.first
 
     video_input = AVCaptureDeviceInput.deviceInputWithDevice(video_device, error: nil)
@@ -20,10 +26,14 @@ class AppDelegate
       @session.addInput(audio_input)
     end
 
-    @output = AVCaptureMovieFileOutput.alloc.init
-    @session.addOutput(@output) if @session.canAddOutput(@output)
+    @video_queue = Dispatch::Queue.new("com.kickcode.avcapture.video_processor")
+    @video_output = AVCaptureVideoDataOutput.alloc.init
+    @video_output.setSampleBufferDelegate(self, queue: @video_queue.dispatch_object)
+    @session.addOutput(@video_output) if @session.canAddOutput(@video_output)
 
+    @audio_queue = Dispatch::Queue.new("com.kickcode.avcapture.audio_processor")
     @audio_output = AVCaptureAudioDataOutput.alloc.init
+    @audio_output.setSampleBufferDelegate(self, queue: @audio_queue.dispatch_object)
     @session.addOutput(@audio_output) if @session.canAddOutput(@audio_output)
 
     @image_output = AVCaptureStillImageOutput.alloc.init
@@ -55,6 +65,11 @@ class AppDelegate
     NSNotificationCenter.defaultCenter.addObserver(self,
       selector: 'didStartRunning',
       name: AVCaptureSessionDidStartRunningNotification,
+      object: nil)
+
+    NSNotificationCenter.defaultCenter.addObserver(self,
+      selector: 'didStopRunning',
+      name: AVCaptureSessionDidStopRunningNotification,
       object: nil)
 
     NSTimer.scheduledTimerWithTimeInterval(0.1, target: self, selector: 'checkAudioLevels', userInfo: nil, repeats: true)
@@ -113,7 +128,7 @@ class AppDelegate
     @is_running ||= false
     if @is_running
       @is_working = true
-      @output.stopRecording
+      @session.stopRunning
       @button.title = "Stopping..."
     else
       @is_working = true
@@ -155,21 +170,64 @@ class AppDelegate
     self.update_video_preview
 
     url = NSURL.alloc.initWithString("file:///Users/#{NSUserName()}/Desktop/temp#{Time.now.to_i}.mp4")
-    @output.startRecordingToOutputFileURL(url, recordingDelegate: self)
-  end
+    @asset_writer = AVAssetWriter.assetWriterWithURL(url, fileType: AVFileTypeMPEG4, error: nil)
+    video_settings = {
+      AVVideoCodecKey => AVVideoCodecH264,
+      AVVideoWidthKey => 1280,
+      AVVideoHeightKey => 720
+    }
+    @video_input = AVAssetWriterInput.alloc.initWithMediaType(AVMediaTypeVideo, outputSettings: video_settings)
+    @video_input.expectsMediaDataInRealTime = true
+    audio_settings = {
+      AVFormatIDKey => KAudioFormatMPEG4AAC,
+      AVNumberOfChannelsKey => 2,
+      AVSampleRateKey => SAMPLE_RATE,
+      AVEncoderBitRateKey => KAudioStreamAnyRate
+    }
+    @audio_input = AVAssetWriterInput.alloc.initWithMediaType(AVMediaTypeAudio, outputSettings: audio_settings)
+    @audio_input.expectsMediaDataInRealTime = true
+    @asset_writer.addInput(@video_input) if @asset_writer.canAddInput(@video_input)
+    @asset_writer.addInput(@audio_input) if @asset_writer.canAddInput(@audio_input)
 
-  def captureOutput(output, didStartRecordingToOutputFileAtURL: url, fromConnections: connections)
     @button.title = "Stop"
     @button.enabled = true
     @is_working = false
-    @is_running = true
   end
 
-  def captureOutput(output, didFinishRecordingToOutputFileAtURL: url, fromConnections: connections, error: err)
-    @session.stopRunning
-    @button.title = "Start"
-    @button.enabled = true
-    @is_working = false
-    @is_running = false
+  def didStopRunning
+    @asset_writer.finishWritingWithCompletionHandler(Proc.new do
+      case @asset_writer.status
+      when AVAssetWriterStatusFailed
+        NSLog "ASSET WRITER ERROR: #{@asset_writer.error.localizedDescription}"
+      when AVAssetWriterStatusCompleted
+        NSLog "ASSET WRITER SUCCESS"
+      else
+        NSLog "ASSET WRITER: #{@asset_writer.status}"
+      end
+      @button.title = "Start"
+      @button.enabled = true
+      @is_working = false
+      @is_running = false
+    end)
+  end
+
+  def captureOutput(output, didOutputSampleBuffer: buffer, fromConnection: connection)
+    return unless CMSampleBufferDataIsReady(buffer)
+    return if @asset_writer.nil? || @video_input.nil? || @audio_input.nil?
+    if @asset_writer.status != AVAssetWriterStatusCompleted
+      if @asset_writer.status < AVAssetWriterStatusWriting
+        @asset_writer.startWriting
+        @asset_writer.startSessionAtSourceTime(CMSampleBufferGetPresentationTimeStamp(buffer))
+        @is_running = true
+      end
+
+      if @is_running && @asset_writer.status == AVAssetWriterStatusWriting
+        if output.is_a?(AVCaptureVideoDataOutput)
+          @video_input.appendSampleBuffer(buffer) if @video_input.isReadyForMoreMediaData && @asset_writer.status == AVAssetWriterStatusWriting
+        elsif output.is_a?(AVCaptureAudioDataOutput)
+          @audio_input.appendSampleBuffer(buffer) if @audio_input.isReadyForMoreMediaData && @asset_writer.status == AVAssetWriterStatusWriting
+        end
+      end
+    end
   end
 end
