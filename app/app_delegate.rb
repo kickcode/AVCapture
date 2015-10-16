@@ -41,14 +41,26 @@ class AppDelegate
     @session.addOutput(@image_output) if @session.canAddOutput(@image_output)
 
     @button = NSButton.alloc.initWithFrame(CGRectZero)
-    self.set_button_frame
     @button.title = "Start"
     @button.target = self
     @button.action = 'toggle_capture:'
     @mainWindow.contentView.addSubview(@button)
 
+    @speed_label = NSTextField.alloc.initWithFrame(CGRectZero)
+    @speed_label.bezeled = false
+    @speed_label.drawsBackground = false
+    @speed_label.stringValue = "1.0x"
+    @mainWindow.contentView.addSubview(@speed_label)
+
+    @speed_slider = NSSlider.alloc.initWithFrame(CGRectZero)
+    @speed_slider.minValue = 1
+    @speed_slider.maxValue = 20
+    @speed_slider.integerValue = 2
+    @speed_slider.target = self
+    @speed_slider.action = 'speed_changed:'
+    @mainWindow.contentView.addSubview(@speed_slider)
+
     @image_button = NSButton.alloc.initWithFrame(CGRectZero)
-    self.set_image_button_frame
     @image_button.title = "Snap"
     @image_button.target = self
     @image_button.action = 'snap_picture:'
@@ -60,8 +72,9 @@ class AppDelegate
     @audio_level.add_threshold(3, 10, NSColor.redColor)
     @audio_level.min_value = -20
     @audio_level.max_value = 10
-    self.set_audio_level_frame
     @mainWindow.contentView.addSubview(@audio_level)
+
+    self.set_ui_frames
 
     NSNotificationCenter.defaultCenter.addObserver(self,
       selector: 'didStartRunning',
@@ -87,22 +100,16 @@ class AppDelegate
   end
 
   def windowDidResize(notification)
-    self.set_button_frame
-    self.set_image_button_frame
-    self.set_audio_level_frame
+    self.set_ui_frames
     self.update_video_preview if @is_running
   end
 
-  def set_button_frame
+  def set_ui_frames
     @button.frame = [[0, 0], BUTTON_SIZE]
-  end
-
-  def set_image_button_frame
+    @speed_label.frame = [[BUTTON_SIZE.first, 5], [35, 20]]
+    @speed_slider.frame = [[@speed_label.frame.origin.x + @speed_label.frame.size.width, 0], [100, 30]]
     @image_button.frame = [[@mainWindow.contentView.bounds.size.width - BUTTON_SIZE.first, 0], BUTTON_SIZE]
-  end
-
-  def set_audio_level_frame
-    @audio_level.frame = [[BUTTON_SIZE.first, 0], [@mainWindow.contentView.bounds.size.width - (BUTTON_SIZE.first * 2), BUTTON_SIZE.last]]
+    @audio_level.frame = [[@speed_slider.frame.origin.x + @speed_slider.frame.size.width, 0], [@mainWindow.contentView.bounds.size.width - (@button.frame.size.width + @speed_label.frame.size.width + @speed_slider.frame.size.width + @image_button.frame.size.width), BUTTON_SIZE.last]]
   end
 
   def update_video_preview
@@ -137,6 +144,10 @@ class AppDelegate
       @button.title = "Starting..."
     end
     @button.enabled = false
+  end
+
+  def speed_changed(sender)
+    @speed_label.stringValue = "#{sender.integerValue * 0.5}x"
   end
 
   def snap_picture(sender)
