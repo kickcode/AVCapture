@@ -2,11 +2,12 @@ class AppDelegate
   BUTTON_SIZE = [90, 30]
   FPS = 30
   SAMPLE_RATE = 44100.0
-  SPEED = 0.5
 
   def applicationDidFinishLaunching(notification)
     buildMenu
     buildWindow
+
+    @speed = 1.0
 
     @session = AVCaptureSession.alloc.init
     @session.sessionPreset = AVCaptureSessionPreset1280x720
@@ -49,13 +50,13 @@ class AppDelegate
     @speed_label = NSTextField.alloc.initWithFrame(CGRectZero)
     @speed_label.bezeled = false
     @speed_label.drawsBackground = false
-    @speed_label.stringValue = "1.0x"
+    @speed_label.stringValue = "#{@speed}x"
     @mainWindow.contentView.addSubview(@speed_label)
 
     @speed_slider = NSSlider.alloc.initWithFrame(CGRectZero)
     @speed_slider.minValue = 1
     @speed_slider.maxValue = 20
-    @speed_slider.integerValue = 2
+    @speed_slider.integerValue = (@speed / 0.5)
     @speed_slider.target = self
     @speed_slider.action = 'speed_changed:'
     @mainWindow.contentView.addSubview(@speed_slider)
@@ -147,7 +148,8 @@ class AppDelegate
   end
 
   def speed_changed(sender)
-    @speed_label.stringValue = "#{sender.integerValue * 0.5}x"
+    @speed = sender.integerValue * 0.5
+    @speed_label.stringValue = "#{@speed}x"
   end
 
   def snap_picture(sender)
@@ -250,7 +252,7 @@ class AppDelegate
     timing_info = KCMTimingInfoInvalid
     timing_info.presentationTimeStamp = @playhead
     timing_info.duration = CMSampleBufferGetDuration(buffer)
-    timing_info.duration.value /= SPEED
+    timing_info.duration.value /= @speed
     @playhead.value += timing_info.duration.value
 
     timing_info.decodeTimeStamp = KCMTimeInvalid
