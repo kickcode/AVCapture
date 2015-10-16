@@ -240,7 +240,7 @@ class AppDelegate
         if output.is_a?(AVCaptureVideoDataOutput)
           self.modify_video_buffer(buffer)
         elsif output.is_a?(AVCaptureAudioDataOutput)
-          @audio_input.appendSampleBuffer(buffer) if @audio_input.isReadyForMoreMediaData && @asset_writer.status == AVAssetWriterStatusWriting
+          @audio_input.appendSampleBuffer(buffer) if @speed == 1.0 && @audio_input.isReadyForMoreMediaData && @asset_writer.status == AVAssetWriterStatusWriting
         end
       end
     end
