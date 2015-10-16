@@ -2,6 +2,7 @@ class AppDelegate
   BUTTON_SIZE = [90, 30]
   FPS = 30
   SAMPLE_RATE = 44100.0
+  SPEED = 0.5
 
   def applicationDidFinishLaunching(notification)
     buildMenu
@@ -208,6 +209,7 @@ class AppDelegate
       @button.enabled = true
       @is_working = false
       @is_running = false
+      @playhead = nil
     end)
   end
 
@@ -223,11 +225,31 @@ class AppDelegate
 
       if @is_running && @asset_writer.status == AVAssetWriterStatusWriting
         if output.is_a?(AVCaptureVideoDataOutput)
-          @video_input.appendSampleBuffer(buffer) if @video_input.isReadyForMoreMediaData && @asset_writer.status == AVAssetWriterStatusWriting
+          self.modify_video_buffer(buffer)
         elsif output.is_a?(AVCaptureAudioDataOutput)
           @audio_input.appendSampleBuffer(buffer) if @audio_input.isReadyForMoreMediaData && @asset_writer.status == AVAssetWriterStatusWriting
         end
       end
     end
+  end
+
+  def modify_video_buffer(buffer)
+    @playhead ||= CMSampleBufferGetPresentationTimeStamp(buffer)
+
+    timing_info = KCMTimingInfoInvalid
+    timing_info.presentationTimeStamp = @playhead
+    timing_info.duration = CMSampleBufferGetDuration(buffer)
+    timing_info.duration.value /= SPEED
+    @playhead.value += timing_info.duration.value
+
+    timing_info.decodeTimeStamp = KCMTimeInvalid
+    timing_info_ptr = Pointer.new('{_CMSampleTimingInfo={_CMTime=qiIq}{_CMTime=qiIq}{_CMTime=qiIq}}')
+    timing_info_ptr[0] = timing_info
+
+    updated_buffer_ptr = Pointer.new(:object)
+    CMSampleBufferCreateCopyWithNewTiming(KCFAllocatorDefault, buffer, 1, timing_info_ptr, updated_buffer_ptr)
+    updated_buffer = updated_buffer_ptr[0]
+
+    @video_input.appendSampleBuffer(updated_buffer) if @video_input.isReadyForMoreMediaData && @asset_writer.status == AVAssetWriterStatusWriting
   end
 end
